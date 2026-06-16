@@ -1,7 +1,12 @@
-import { StyleSheet, TouchableOpacity, View, SafeAreaView, ScrollView } from 'react-native';
+import { StyleSheet, TouchableOpacity, View, ScrollView, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
-import { useWeeklyPlans } from '@/app/context/WeeklyPlanContext';
-import { useWorkouts } from '@/app/context/WorkoutContext';
+import { useState } from 'react';
+import { useWeeklyPlans } from '@/context/WeeklyPlanContext';
+import { useWorkouts } from '@/context/WorkoutContext';
+import { useCustomTheme } from '@/context/CustomThemeContext';
+import { ColorPicker } from '@/components/ColorPicker';
+import { MiniPlayer } from '@/components/MiniPlayer';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -19,6 +24,8 @@ const COLORS = {
 export default function HomeScreen() {
   const { plans } = useWeeklyPlans();
   const { workouts } = useWorkouts();
+  const { primaryColor, secondaryColor, setPrimaryColor, setSecondaryColor } = useCustomTheme();
+  const [themeModalVisible, setThemeModalVisible] = useState(false);
 
   return (
     <SafeAreaView style={styles.safeContainer}>
@@ -27,22 +34,28 @@ export default function HomeScreen() {
 
           {/* Header con titolo */}
           <View style={styles.header}>
-			<ThemedText style={styles.appTitle} numberOfLines={1} adjustsFontSizeToFit>GYMApp</ThemedText>
-            <ThemedText style={styles.subtitle}>Il tuo compagno di allenamento</ThemedText>
+            <TouchableOpacity 
+              style={styles.themeSelectorBtn} 
+              onPress={() => setThemeModalVisible(true)}
+            >
+              <ThemedText style={styles.themeSelectorIcon}>🎨</ThemedText>
+            </TouchableOpacity>
+			<ThemedText style={[styles.appTitle, { textShadowColor: `${primaryColor}4d` }]} numberOfLines={1} adjustsFontSizeToFit>GYMApp</ThemedText>
+            <ThemedText style={styles.subtitle}>Il tuo compagno di allenamentoaaa</ThemedText>
           </View>
 
           {/* Statistiche veloci */}
           <View style={styles.statsContainer}>
-            <View style={styles.statCard}>
-              <ThemedText style={styles.statNumber}>{workouts?.length || 0}</ThemedText>
+            <View style={[styles.statCard, { borderColor: `${primaryColor}33` }]}>
+              <ThemedText style={[styles.statNumber, { color: primaryColor }]}>{workouts?.length || 0}</ThemedText>
               <ThemedText style={styles.statLabel}>Piani</ThemedText>
             </View>
-            <View style={styles.statCard}>
-              <ThemedText style={styles.statNumber}>{plans?.length || 0}</ThemedText>
+            <View style={[styles.statCard, { borderColor: `${primaryColor}33` }]}>
+              <ThemedText style={[styles.statNumber, { color: primaryColor }]}>{plans?.length || 0}</ThemedText>
               <ThemedText style={styles.statLabel}>Schede</ThemedText>
             </View>
-            <View style={styles.statCard}>
-              <ThemedText style={styles.statNumber}>
+            <View style={[styles.statCard, { borderColor: `${primaryColor}33` }]}>
+              <ThemedText style={[styles.statNumber, { color: primaryColor }]}>
                 {workouts?.reduce((sum, w) => sum + w.exercises.length, 0) || 0}
               </ThemedText>
               <ThemedText style={styles.statLabel}>Esercizi</ThemedText>
@@ -54,7 +67,7 @@ export default function HomeScreen() {
             <ThemedText style={styles.sectionTitle}>Azioni Rapide</ThemedText>
             
             <Link href="/workouts/add" asChild>
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity style={[styles.actionButton, { borderColor: `${primaryColor}33` }]}>
                 <View style={styles.actionIcon}>
                   <ThemedText style={styles.iconText}>➕</ThemedText>
                 </View>
@@ -69,7 +82,7 @@ export default function HomeScreen() {
 
 
             <Link href="/workouts/addTraining" asChild>
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity style={[styles.actionButton, { borderColor: `${primaryColor}33` }]}>
                 <View style={styles.actionIcon}>
 				  <ThemedText style={styles.iconText}>💪</ThemedText>
                 </View>
@@ -83,7 +96,7 @@ export default function HomeScreen() {
             </Link>
 
             <Link href="/weekly-plans/addWeekly" asChild>
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity style={[styles.actionButton, { borderColor: `${primaryColor}33` }]}>
                 <View style={styles.actionIcon}>
                   <ThemedText style={styles.iconText}>📅</ThemedText>
                 </View>
@@ -101,6 +114,38 @@ export default function HomeScreen() {
 
         </ThemedView>
       </ScrollView>
+
+      {/* Modal di Selezione Colori */}
+      <Modal
+        visible={themeModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setThemeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <ThemedView style={styles.modalContent}>
+            <ThemedText type="subtitle" style={styles.modalTitle}>{"Personalizza Colori"}</ThemedText>
+            
+            <ScrollView style={styles.modalScroll} contentContainerStyle={{ gap: 12, paddingBottom: 16 }} keyboardShouldPersistTaps="handled">
+              <ThemedText type="defaultSemiBold" style={styles.colorGroupTitle}>{"Colore Primario"}</ThemedText>
+              <ColorPicker value={primaryColor} onChange={setPrimaryColor} />
+
+              <View style={{ height: 1, backgroundColor: '#333', marginVertical: 12 }} />
+
+              <ThemedText type="defaultSemiBold" style={styles.colorGroupTitle}>{"Colore Secondario"}</ThemedText>
+              <ColorPicker value={secondaryColor} onChange={setSecondaryColor} />
+            </ScrollView>
+
+            <TouchableOpacity 
+              style={[styles.closeModalBtn, { backgroundColor: primaryColor }]} 
+              onPress={() => setThemeModalVisible(false)}
+            >
+              <ThemedText type="defaultSemiBold" style={{ color: '#fff' }}>{"Salva e Chiudi"}</ThemedText>
+            </TouchableOpacity>
+          </ThemedView>
+        </View>
+      </Modal>
+      <MiniPlayer />
     </SafeAreaView>
   );
 }
@@ -123,7 +168,9 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 32,
-    paddingVertical: 16, // Aggiungi padding verticale
+    paddingVertical: 16,
+    position: 'relative',
+    width: '100%',
   },
   appTitle: {
     fontSize: 48, // Riduci da 56 a 48
@@ -241,7 +288,61 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     textAlign: 'right',
   },
+  themeSelectorBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 0,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: '#333',
+    zIndex: 10,
+  },
+  themeSelectorIcon: {
+    fontSize: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+  },
+  modalContent: {
+    width: '90%',
+    maxHeight: '80%',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#444',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalTitle: {
+    marginBottom: 16,
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  modalScroll: {
+    marginVertical: 8,
+  },
+  colorGroupTitle: {
+    fontSize: 16,
+    color: '#fff',
+    marginBottom: 4,
+    fontWeight: 'bold',
+  },
+  closeModalBtn: {
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
 });
 
-// useWeeklyPlans is provided by '@/app/context/WeeklyPlanContext'.
+// useWeeklyPlans is provided by '@/context/WeeklyPlanContext'.
 // Local stub removed to avoid conflict with the imported hook.

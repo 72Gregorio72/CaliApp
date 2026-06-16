@@ -1,4 +1,5 @@
-import { useWorkouts } from '@/app/context/WorkoutContext';
+import { useWorkouts } from '@/context/WorkoutContext';
+import { useCustomTheme } from '@/context/CustomThemeContext';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Link } from 'expo-router';
@@ -7,7 +8,7 @@ import { FlatList, Pressable, StyleSheet, View, Alert } from 'react-native';
 
 export default function WorkoutsScreen() {
   const { workouts, deleteWorkout } = useWorkouts();
-  const [expandedId, setExpandedId] = React.useState<string | null>(null);
+  const { primaryColor, secondaryColor } = useCustomTheme();
 
   const handleDelete = (id: string, title: string) => {
     Alert.alert(
@@ -39,45 +40,37 @@ export default function WorkoutsScreen() {
         keyExtractor={(w) => w.id}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => {
-          const isExpanded = expandedId === item.id;
           return (
-            <ThemedView style={styles.card}>
-              <Pressable style={styles.cardHeader} onPress={() => setExpandedId(isExpanded ? null : item.id)}>
-                <ThemedText type="defaultSemiBold">{isExpanded ? '▾' : '▸'} {item.title}</ThemedText>
+            <ThemedView style={[styles.card, { borderColor: `${primaryColor}33` }]}>
+              <View style={styles.cardHeader}>
+                <ThemedText type="defaultSemiBold">{item.title}</ThemedText>
                 <ThemedText type="default">{item.exercises.length} esercizi</ThemedText>
-              </Pressable>
-              {isExpanded ? (
-                <View style={styles.cardBody}>
-                  {item.exercises.map((ex, idx) => (
-                    <View key={`${item.id}-${idx}`} style={styles.exerciseRow}>
-                      <ThemedText type="defaultSemiBold">{ex.name}</ThemedText>
-                      <ThemedText type="default">{ex.sets}x{ex.reps} • rec {ex.restSeconds}s{ex.durationSeconds ? ` • dur ${ex.durationSeconds}s` : ''}</ThemedText>
-                      {ex.description ? (
-                        <ThemedText type="default">{ex.description}</ThemedText>
-                      ) : null}
-                    </View>
-                  ))}
-                  <View style={styles.actionButtons}>
-                    <Pressable style={styles.startButton} onPress={() => {
-                      import('expo-router').then(({ router }) => router.push({ pathname: '/workouts/session', params: { workoutId: item.id } }));
-                    }}>
-                      <ThemedText type="defaultSemiBold" style={styles.startButtonText}>Inizia</ThemedText>
-                    </Pressable>
-                    <Pressable style={styles.editButton} onPress={() => handleEdit(item.id)}>
-                      <ThemedText style={styles.editButtonText}>Modifica</ThemedText>
-                    </Pressable>
-                    <Pressable style={styles.deleteButton} onPress={() => handleDelete(item.id, item.title)}>
-                      <ThemedText style={styles.deleteButtonText}>Elimina</ThemedText>
-                    </Pressable>
-                  </View>
-                </View>
-              ) : null}
+              </View>
+              <View style={styles.actionButtons}>
+                <Pressable 
+                  style={[styles.startButton, { borderColor: primaryColor, backgroundColor: `${primaryColor}1a` }]} 
+                  onPress={() => {
+                    import('expo-router').then(({ router }) => router.push({ pathname: '/workouts/session', params: { workoutId: item.id } }));
+                  }}
+                >
+                  <ThemedText type="defaultSemiBold" style={[styles.startButtonText, { color: primaryColor }]}>Inizia</ThemedText>
+                </Pressable>
+                <Pressable 
+                  style={[styles.editButton, { borderColor: secondaryColor, backgroundColor: `${secondaryColor}1a` }]} 
+                  onPress={() => handleEdit(item.id)}
+                >
+                  <ThemedText style={[styles.editButtonText, { color: secondaryColor }]}>Modifica</ThemedText>
+                </Pressable>
+                <Pressable style={styles.deleteButton} onPress={() => handleDelete(item.id, item.title)}>
+                  <ThemedText style={styles.deleteButtonText}>Elimina</ThemedText>
+                </Pressable>
+              </View>
             </ThemedView>
           );
         }}
         ListEmptyComponent={
           <ThemedText style={styles.emptyText}>
-            Nessun allenamento creato. Tocca "+ Aggiungi" per iniziare.
+            {"Nessun allenamento creato. Tocca \"+ Aggiungi\" per iniziare."}
           </ThemedText>
         }
       />

@@ -1,4 +1,5 @@
-import { useWorkouts } from '@/app/context/WorkoutContext';
+import { useWorkouts } from '@/context/WorkoutContext';
+import { useCustomTheme } from '@/context/CustomThemeContext';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -19,6 +20,7 @@ type DraftExercise = {
 export default function EditWorkoutScreen() {
   const { workoutId } = useLocalSearchParams<{ workoutId: string }>();
   const { workouts, updateWorkout } = useWorkouts();
+  const { primaryColor } = useCustomTheme();
   const workout = workouts.find(w => w.id === workoutId);
 
   const [title, setTitle] = useState(workout?.title || '');
@@ -148,7 +150,7 @@ export default function EditWorkoutScreen() {
           renderItem={({ item, index }) => {
             const isExpanded = expandedIndex === index;
             return (
-              <ThemedView style={styles.card}>
+              <ThemedView style={[styles.card, { borderColor: `${primaryColor}33` }]}>
                 <Pressable
                   onPress={() => setExpandedIndex(isExpanded ? null : index)}
                   style={styles.cardHeader}

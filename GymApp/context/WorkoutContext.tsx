@@ -9,6 +9,7 @@ export type Exercise = {
   restSeconds: number;
   durationSeconds?: number;
   description?: string;
+  maxWeight?: string; // Peso massimo registrato (testo libero, es. "80.5 kg", "2x20")
 };
 
 export type Workout = {
@@ -115,5 +116,3 @@ export function useWorkouts() {
   }
   return context;
 }
-
-

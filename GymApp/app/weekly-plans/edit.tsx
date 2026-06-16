@@ -1,5 +1,5 @@
-import { useWeeklyPlans, type DayWorkout } from '@/app/context/WeeklyPlanContext';
-import { useWorkouts } from '@/app/context/WorkoutContext';
+import { useWeeklyPlans, type DayWorkout } from '@/context/WeeklyPlanContext';
+import { useWorkouts } from '@/context/WorkoutContext';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { router, useLocalSearchParams } from 'expo-router';

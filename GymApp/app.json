@@ -39,7 +39,25 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-font",
+      "expo-web-browser",
+      "expo-video",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Consenti a GymApp di accedere alla fotocamera per registrare i tuoi esercizi.",
+          "microphonePermission": "Consenti a GymApp di accedere al microfono per registrare l'audio dei tuoi esercizi.",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Consenti a GymApp di accedere alla galleria per salvare i tuoi video.",
+          "savePhotosPermission": "Consenti a GymApp di salvare i video dei tuoi esercizi nella galleria."
+        }
+      ],
     ],
     "experiments": {
       "typedRoutes": true,

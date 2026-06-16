@@ -1,13 +1,14 @@
 // app/weekly-plans/addWeekly.tsx (FILE COMPLETO E FINALE)
 
-import { useWeeklyPlans, type DayWorkout } from '@/app/context/WeeklyPlanContext';
-import { useWorkouts } from '@/app/context/WorkoutContext';
+import { useWeeklyPlans, type DayWorkout } from '@/context/WeeklyPlanContext';
+import { useWorkouts } from '@/context/WorkoutContext';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Picker } from '@react-native-picker/picker';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, FlatList, StyleSheet, TextInput, View, SafeAreaView } from 'react-native'; // Aggiunto SafeAreaView
+import { Alert, FlatList, StyleSheet, TextInput, View } from 'react-native'; 
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // --- COSTANTI DI STILE DARK MINIMAL ---
 const COLORS = {

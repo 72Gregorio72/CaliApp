@@ -3,10 +3,14 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
-import { WorkoutProvider } from '@/app/context/WorkoutContext';
-import { WeeklyPlanProvider } from '@/app/context/WeeklyPlanContext';
+import { WorkoutProvider } from '@/context/WorkoutContext';
+import { WeeklyPlanProvider } from '@/context/WeeklyPlanContext';
+import { CustomThemeProvider } from '@/context/CustomThemeContext';
+import { MusicProvider } from '@/context/MusicContext';
+import { PlaylistProvider } from '@/context/PlaylistContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { View, StyleSheet } from 'react-native';
+import YTPlayerBridge from '@/components/YTPlayerBridge';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -17,18 +21,32 @@ export default function RootLayout() {
 
   return (
     <View style={styles.container}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <WorkoutProvider>
-          <WeeklyPlanProvider>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-              <Stack.Screen name="workouts" options={{ headerShown: false }} />
-            </Stack>
-            <StatusBar style="auto" />
-          </WeeklyPlanProvider>
-        </WorkoutProvider>
-      </ThemeProvider>
+      <CustomThemeProvider>
+        <MusicProvider>
+          <PlaylistProvider>
+            {/*
+             * YTPlayerBridge va DENTRO MusicProvider (usa useMusic())
+             * ma FUORI dallo Stack di navigazione — così il WebView
+             * non viene mai smontato quando si naviga tra le schermate.
+             * È completamente invisibile (position: absolute, top: -9999).
+             */}
+            <YTPlayerBridge />
+
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <WorkoutProvider>
+                <WeeklyPlanProvider>
+                  <Stack>
+                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                    <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+                    <Stack.Screen name="workouts" options={{ headerShown: false }} />
+                  </Stack>
+                  <StatusBar style="auto" />
+                </WeeklyPlanProvider>
+              </WorkoutProvider>
+            </ThemeProvider>
+          </PlaylistProvider>
+        </MusicProvider>
+      </CustomThemeProvider>
     </View>
   );
 }
