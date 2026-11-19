@@ -1,348 +1,229 @@
-import { StyleSheet, TouchableOpacity, View, ScrollView, Modal } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link } from 'expo-router';
-import { useState } from 'react';
-import { useWeeklyPlans } from '@/context/WeeklyPlanContext';
-import { useWorkouts } from '@/context/WorkoutContext';
-import { useCustomTheme } from '@/context/CustomThemeContext';
 import { ColorPicker } from '@/components/ColorPicker';
-import { MiniPlayer } from '@/components/MiniPlayer';
+import { Button, Card, Empty, HeroCard, IconButton, Pill, Screen, Section, Sheet, Stat, Txt, WeekStrip, MonthGrid, onColor, todayIndex } from '@/components/ui/kit';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { PRIMARY_COLOR_OPTIONS, SECONDARY_COLOR_OPTIONS, useCustomTheme } from '@/context/CustomThemeContext';
+import { WEEK_DAYS, useWeeklyPlans } from '@/context/WeeklyPlanContext';
+import { useWorkouts } from '@/context/WorkoutContext';
+import { useHistory } from '@/context/HistoryContext';
+import { ReloadDataContext, exportBackup, importBackup } from '@/lib/backup';
+import { seedDemo } from '@/lib/demo';
+import { dayKey, thisWeek, volume, weekStreak } from '@/lib/stats';
+import * as Clipboard from 'expo-clipboard';
+import { router } from 'expo-router';
+import { useContext, useState } from 'react';
+import { Alert, Modal, Pressable, Switch, Text, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { UI } from '@/constants/theme';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+const MONTHS = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
 
-const COLORS = {
-  background: '#0d0d0d',
-  cardBackground: '#1a1a1a',
-  textPrimary: '#E0E0E0',
-  textMuted: '#A0A0A0',
-  accent: '#7AA0FF',
-  success: '#4CAF50',
-};
-
-// --- HOME SCREEN PRINCIPALE ---
 export default function HomeScreen() {
-  const { plans } = useWeeklyPlans();
+  const { plans, activePlanId } = useWeeklyPlans();
   const { workouts } = useWorkouts();
-  const { primaryColor, secondaryColor, setPrimaryColor, setSecondaryColor } = useCustomTheme();
-  const [themeModalVisible, setThemeModalVisible] = useState(false);
+  const { sessions, draft, setDraft } = useHistory();
+  const reloadData = useContext(ReloadDataContext);
+  const [backupOpen, setBackupOpen] = useState(false);
+  const { primaryColor, secondaryColor, setPrimaryColor, setSecondaryColor, darkMode, setDarkMode } = useCustomTheme();
+  const [themeOpen, setThemeOpen] = useState(false);
+  const [colorTarget, setColorTarget] = useState<'primary' | 'secondary'>('primary');
+
+  const now = new Date();
+  const today = todayIndex();
+  // the active plan wins; without one, the first plan with something today
+  const plan = plans.find(p => p?.id === activePlanId) ?? plans.find(p => p?.days?.[today]?.workoutId) ?? plans[0];
+  const draftWorkout = draft ? workouts.find(w => w?.id === draft.workoutId) : undefined;
+  const week = thisWeek(sessions, now);
+  const weekKg = Math.round(week.reduce((n, l) => n + volume(l), 0));
+  const monthCount = sessions.filter(l => new Date(l.date).getMonth() === now.getMonth() && new Date(l.date).getFullYear() === now.getFullYear()).length;
+  const monthName = MONTHS[now.getMonth()];
+  const todayWorkout = workouts.find(w => w?.id === plan?.days?.[today]?.workoutId);
+  const totalSets = todayWorkout?.exercises.reduce((n, e) => n + (e.sets || 0), 0) ?? 0;
+  const fg = onColor(primaryColor);
+
+  const openWorkout = (workoutId: string) => router.push({ pathname: '/weekly-plans/workout-details', params: { workoutId } });
+
+  const copyBackup = async () => {
+    try {
+      await Clipboard.setStringAsync(await exportBackup());
+      Alert.alert('Backup copiato', 'Incollalo in una nota o mandatelo per email per tenerlo al sicuro.');
+    } catch (e: any) {
+      Alert.alert('Errore', 'Impossibile creare il backup: ' + e.message);
+    }
+  };
+
+  const restoreBackup = () =>
+    Alert.alert('Ripristina backup', 'Sostituisce allenamenti, schede e storico con il backup copiato negli appunti. Continuare?', [
+      { text: 'Annulla', style: 'cancel' },
+      {
+        text: 'Ripristina',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await importBackup(await Clipboard.getStringAsync());
+            setBackupOpen(false);
+            reloadData();
+            Alert.alert('Fatto', 'Dati ripristinati.');
+          } catch (e: any) {
+            Alert.alert('Backup non valido', e.message);
+          }
+        },
+      },
+    ]);
+
+  // no `draftWorkout!.id` here: React Compiler trusts `!` and reads .id during render to memoize, crashing when there's no draft
+  const resume = () => draftWorkout && router.push({ pathname: '/workouts/session', params: { workoutId: draftWorkout.id } });
 
   return (
-    <SafeAreaView style={styles.safeContainer}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <ThemedView style={styles.contentContainer}>
-
-          {/* Header con titolo */}
-          <View style={styles.header}>
-            <TouchableOpacity 
-              style={styles.themeSelectorBtn} 
-              onPress={() => setThemeModalVisible(true)}
-            >
-              <ThemedText style={styles.themeSelectorIcon}>🎨</ThemedText>
-            </TouchableOpacity>
-			<ThemedText style={[styles.appTitle, { textShadowColor: `${primaryColor}4d` }]} numberOfLines={1} adjustsFontSizeToFit>GYMApp</ThemedText>
-            <ThemedText style={styles.subtitle}>Il tuo compagno di allenamentoaaa</ThemedText>
-          </View>
-
-          {/* Statistiche veloci */}
-          <View style={styles.statsContainer}>
-            <View style={[styles.statCard, { borderColor: `${primaryColor}33` }]}>
-              <ThemedText style={[styles.statNumber, { color: primaryColor }]}>{workouts?.length || 0}</ThemedText>
-              <ThemedText style={styles.statLabel}>Piani</ThemedText>
-            </View>
-            <View style={[styles.statCard, { borderColor: `${primaryColor}33` }]}>
-              <ThemedText style={[styles.statNumber, { color: primaryColor }]}>{plans?.length || 0}</ThemedText>
-              <ThemedText style={styles.statLabel}>Schede</ThemedText>
-            </View>
-            <View style={[styles.statCard, { borderColor: `${primaryColor}33` }]}>
-              <ThemedText style={[styles.statNumber, { color: primaryColor }]}>
-                {workouts?.reduce((sum, w) => sum + w.exercises.length, 0) || 0}
-              </ThemedText>
-              <ThemedText style={styles.statLabel}>Esercizi</ThemedText>
-            </View>
-          </View>
-
-          {/* Azioni principali */}
-          <View style={styles.actionsContainer}>
-            <ThemedText style={styles.sectionTitle}>Azioni Rapide</ThemedText>
-            
-            <Link href="/workouts/add" asChild>
-              <TouchableOpacity style={[styles.actionButton, { borderColor: `${primaryColor}33` }]}>
-                <View style={styles.actionIcon}>
-                  <ThemedText style={styles.iconText}>➕</ThemedText>
-                </View>
-                <View style={styles.actionContent}>
-                  <ThemedText style={styles.actionTitle}>Crea Allenamento</ThemedText>
-                  <ThemedText style={styles.actionDescription}>
-                    Personalizza i tuoi esercizi
-                  </ThemedText>
-                </View>
-              </TouchableOpacity>
-            </Link>
-
-
-            <Link href="/workouts/addTraining" asChild>
-              <TouchableOpacity style={[styles.actionButton, { borderColor: `${primaryColor}33` }]}>
-                <View style={styles.actionIcon}>
-				  <ThemedText style={styles.iconText}>💪</ThemedText>
-                </View>
-                <View style={styles.actionContent}>
-                  <ThemedText style={styles.actionTitle}>Allenamenti</ThemedText>
-                  <ThemedText style={styles.actionDescription}>
-                    Personalizza i tuoi allenamenti
-                  </ThemedText>
-                </View>
-              </TouchableOpacity>
-            </Link>
-
-            <Link href="/weekly-plans/addWeekly" asChild>
-              <TouchableOpacity style={[styles.actionButton, { borderColor: `${primaryColor}33` }]}>
-                <View style={styles.actionIcon}>
-                  <ThemedText style={styles.iconText}>📅</ThemedText>
-                </View>
-                <View style={styles.actionContent}>
-                  <ThemedText style={styles.actionTitle}>Schede Settimanali</ThemedText>
-                  <ThemedText style={styles.actionDescription}>
-                    {plans.length === 0
-                      ? 'Organizza la tua settimana'
-                      : `${plans.length} scheda${plans.length > 1 ? 'e' : ''} attiva${plans.length > 1 ? 'e' : ''}`}
-                  </ThemedText>
-                </View>
-              </TouchableOpacity>
-            </Link>
-          </View>
-
-        </ThemedView>
-      </ScrollView>
-
-      {/* Modal di Selezione Colori */}
-      <Modal
-        visible={themeModalVisible}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={() => setThemeModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <ThemedView style={styles.modalContent}>
-            <ThemedText type="subtitle" style={styles.modalTitle}>{"Personalizza Colori"}</ThemedText>
-            
-            <ScrollView style={styles.modalScroll} contentContainerStyle={{ gap: 12, paddingBottom: 16 }} keyboardShouldPersistTaps="handled">
-              <ThemedText type="defaultSemiBold" style={styles.colorGroupTitle}>{"Colore Primario"}</ThemedText>
-              <ColorPicker value={primaryColor} onChange={setPrimaryColor} />
-
-              <View style={{ height: 1, backgroundColor: '#333', marginVertical: 12 }} />
-
-              <ThemedText type="defaultSemiBold" style={styles.colorGroupTitle}>{"Colore Secondario"}</ThemedText>
-              <ColorPicker value={secondaryColor} onChange={setSecondaryColor} />
-            </ScrollView>
-
-            <TouchableOpacity 
-              style={[styles.closeModalBtn, { backgroundColor: primaryColor }]} 
-              onPress={() => setThemeModalVisible(false)}
-            >
-              <ThemedText type="defaultSemiBold" style={{ color: '#fff' }}>{"Salva e Chiudi"}</ThemedText>
-            </TouchableOpacity>
-          </ThemedView>
+    <Screen
+      tab
+      subtitle={`${WEEK_DAYS[today]} ${now.getDate()} ${MONTHS[now.getMonth()]}`}
+      title="Pronto ad allenarti?"
+      right={
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <IconButton icon="cloud-upload-outline" label="Backup dati" onPress={() => setBackupOpen(true)} />
+          <IconButton icon="color-palette-outline" label="Personalizza colori" onPress={() => setThemeOpen(true)} />
         </View>
+      }
+    >
+      {draft && draftWorkout ? (
+        <Card onPress={resume}>
+          <Txt v="label">Allenamento in sospeso</Txt>
+          <Txt v="h2">{draftWorkout.title}</Txt>
+          <Txt v="muted">{`${Object.values(draft.counters).reduce((n, c) => n + c.currentSet, 0)} serie fatte · iniziato ${new Date(draft.startedAt).toLocaleString('it-IT', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}`}</Txt>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Button title="Riprendi" icon="play" small style={{ flex: 1 }} onPress={resume} />
+            <IconButton icon="trash-outline" tone="danger" label="Scarta allenamento in sospeso" onPress={() => setDraft(null)} />
+          </View>
+        </Card>
+      ) : null}
+
+      {todayWorkout ? (
+        <HeroCard>
+          <Txt v="label" color={fg} style={{ opacity: 0.8 }}>Allenamento di oggi</Txt>
+          <Txt v="h1" color={fg}>{todayWorkout.title}</Txt>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pill tone="onAccent" icon="barbell-outline" text={`${todayWorkout.exercises.length} esercizi`} />
+            <Pill tone="onAccent" icon="layers-outline" text={`${totalSets} serie`} />
+          </View>
+          <Button
+            variant="onAccent"
+            icon="play"
+            title="Inizia allenamento"
+            onPress={() => router.push({ pathname: '/workouts/session', params: { workoutId: todayWorkout.id } })}
+          />
+        </HeroCard>
+      ) : plans.length > 0 ? (
+        <Card>
+          <Txt v="label">Oggi</Txt>
+          <Txt v="h2">Giorno di riposo 😌</Txt>
+          <Txt v="muted">{`Recupera bene: nella scheda "${plan?.name}" oggi non è previsto nessun allenamento.`}</Txt>
+        </Card>
+      ) : (
+        <Empty
+          icon="calendar-outline"
+          title="Organizza la tua settimana"
+          text="Crea una scheda settimanale e qui vedrai ogni giorno l'allenamento da fare."
+          action="Crea scheda"
+          onAction={() => router.push('/weekly-plans/add')}
+        />
+      )}
+
+      {plan ? (
+        <Section title={`Settimana · ${plan.name}`} action="Schede" onAction={() => router.push('/plans')}>
+          <Card>
+            <WeekStrip days={plan.days} onPressDay={i => openWorkout(plan.days[i].workoutId!)} />
+          </Card>
+        </Section>
+      ) : null}
+
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <Stat value={week.length} label="Questa settimana" />
+        <Stat value={weekStreak(sessions, now)} label="Settimane di fila" />
+        <Stat value={weekKg >= 1000 ? `${(weekKg / 1000).toFixed(1).replace('.', ',')} t` : `${weekKg} kg`} label="Volume settimana" />
+      </View>
+
+      <Section title={`${monthName[0].toUpperCase()}${monthName.slice(1)} · ${monthCount} allenamenti`}>
+        <Card>
+          <MonthGrid now={now} trained={new Set(sessions.map(l => dayKey(new Date(l.date))))} color={primaryColor} />
+        </Card>
+      </Section>
+
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        {([
+          ['add-circle-outline', 'Nuovo allenamento', 'A mano o con l\'AI', '/workouts/add'],
+          ['calendar-outline', 'Nuova scheda', 'Pianifica la settimana', '/weekly-plans/add'],
+        ] as const).map(([icon, title, sub, href]) => (
+          <Card key={href} onPress={() => router.push(href)} style={{ flex: 1, gap: 8 }}>
+            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: primaryColor, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name={icon} size={22} color={fg} />
+            </View>
+            <View>
+              <Txt v="h3" numberOfLines={1} adjustsFontSizeToFit>{title}</Txt>
+              <Txt v="muted" numberOfLines={1}>{sub}</Txt>
+            </View>
+          </Card>
+        ))}
+      </View>
+
+      <Sheet visible={backupOpen} onClose={() => setBackupOpen(false)} title="Backup dati">
+        <Txt v="muted">{`Allenamenti, schede e storico (${sessions.length} sessioni) vengono copiati negli appunti come testo. Salvalo in un posto sicuro: se disinstalli l'app potrai ripristinarlo da qui.`}</Txt>
+        <Button title="Copia backup" icon="copy-outline" onPress={copyBackup} />
+        <Button title="Ripristina dagli appunti" icon="download-outline" variant="secondary" onPress={restoreBackup} />
+        {__DEV__ ? (
+          <Button
+            title="Carica dati demo (debug)"
+            icon="flask-outline"
+            variant="secondary"
+            onPress={() => seedDemo().then(() => { setBackupOpen(false); reloadData(); }, e => Alert.alert('Errore', e.message))}
+          />
+        ) : null}
+      </Sheet>
+
+      {/* full screen, no ScrollView: the color page must not move when dragging up/down */}
+      <Modal visible={themeOpen} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => setThemeOpen(false)}>
+        <SafeAreaProvider>
+        <SafeAreaView style={{ flex: 1, backgroundColor: UI.bg, padding: 20, gap: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Txt v="h2">Personalizza colori</Txt>
+          <IconButton icon="close" label="Chiudi" onPress={() => setThemeOpen(false)} />
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Txt v="h3">Tema scuro</Txt>
+          <Switch
+            value={darkMode}
+            onValueChange={setDarkMode}
+            trackColor={{ true: primaryColor, false: UI.border }}
+            thumbColor="#fff"
+            accessibilityLabel="Tema scuro"
+          />
+        </View>
+        <View style={{ flexDirection: 'row', backgroundColor: UI.surface, borderRadius: 14, padding: 4, gap: 4 }}>
+          {([['primary', 'Primario', primaryColor], ['secondary', 'Secondario', secondaryColor]] as const).map(([key, label, color]) => {
+            const on = colorTarget === key;
+            return (
+              <Pressable
+                key={key}
+                onPress={() => setColorTarget(key)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on }}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 10, borderRadius: 10, backgroundColor: on ? UI.card : 'transparent' }}
+              >
+                <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: color, borderWidth: 1, borderColor: UI.border }} />
+                <Text style={{ color: on ? UI.text : UI.muted, fontWeight: '600' }}>{label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {colorTarget === 'primary' ? (
+          <ColorPicker key="primary" value={primaryColor} onChange={setPrimaryColor} presets={PRIMARY_COLOR_OPTIONS} />
+        ) : (
+          <ColorPicker key="secondary" value={secondaryColor} onChange={setSecondaryColor} presets={SECONDARY_COLOR_OPTIONS} />
+        )}
+        <View style={{ flex: 1 }} />
+        <Button title="Fatto" onPress={() => setThemeOpen(false)} />
+        </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
-      <MiniPlayer />
-    </SafeAreaView>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  safeContainer: {
-    flex: 1,
-    backgroundColor: '#0d0d0d',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 32,
-  },
-  contentContainer: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    backgroundColor: 'transparent',
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 32,
-    paddingVertical: 16,
-    position: 'relative',
-    width: '100%',
-  },
-  appTitle: {
-    fontSize: 48, // Riduci da 56 a 48
-    fontWeight: '900',
-    color: COLORS.textPrimary,
-    letterSpacing: 4,
-    textShadowColor: 'rgba(122, 160, 255, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 10,
-    lineHeight: 56, // Aggiungi lineHeight per dare più spazio
-    includeFontPadding: false, // Rimuovi padding extra del font su Android
-  },
-  subtitle: {
-    fontSize: 16,
-    color: COLORS.textMuted,
-    marginTop: 8,
-    letterSpacing: 1,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 32,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#1a1a1a',
-    padding: 20,
-    borderRadius: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(122, 160, 255, 0.2)',
-  },
-  statNumber: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: COLORS.accent,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  actionsContainer: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: 16,
-    letterSpacing: 0.5,
-	textAlign: 'center',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    backgroundColor: '#1a1a1a',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(122, 160, 255, 0.2)',
-  },
-  primaryAction: {
-    backgroundColor: '#1a2332',
-    borderColor: COLORS.accent,
-    borderWidth: 2,
-  },
-  actionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#2a2a2a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  iconText: {
-    fontSize: 28,
-  },
-  actionContent: {
-    flex: 1,
-  },
-  actionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    marginBottom: 4,
-  },
-  actionDescription: {
-    fontSize: 14,
-    color: COLORS.textMuted,
-  },
-  motivationCard: {
-    backgroundColor: COLORS.cardBackground,
-    padding: 24,
-    borderRadius: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.accent,
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-  },
-  motivationText: {
-    fontSize: 16,
-    color: COLORS.textPrimary,
-    fontStyle: 'italic',
-    lineHeight: 24,
-    marginBottom: 12,
-  },
-  motivationAuthor: {
-    fontSize: 14,
-    color: COLORS.textMuted,
-    textAlign: 'right',
-  },
-  themeSelectorBtn: {
-    position: 'absolute',
-    top: 10,
-    right: 0,
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#1a1a1a',
-    borderWidth: 1,
-    borderColor: '#333',
-    zIndex: 10,
-  },
-  themeSelectorIcon: {
-    fontSize: 20,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-  },
-  modalContent: {
-    width: '90%',
-    maxHeight: '80%',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#444',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  modalTitle: {
-    marginBottom: 16,
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
-  modalScroll: {
-    marginVertical: 8,
-  },
-  colorGroupTitle: {
-    fontSize: 16,
-    color: '#fff',
-    marginBottom: 4,
-    fontWeight: 'bold',
-  },
-  closeModalBtn: {
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 16,
-  },
-});
-
-// useWeeklyPlans is provided by '@/context/WeeklyPlanContext'.
-// Local stub removed to avoid conflict with the imported hook.

@@ -18,23 +18,33 @@ type WeeklyPlanContextType = {
   addPlan: (plan: Omit<WeeklyPlan, 'id' | 'createdAt'>) => Promise<void>;
   updatePlan: (id: string, plan: Omit<WeeklyPlan, 'id' | 'createdAt'>) => Promise<void>;
   deletePlan: (id: string) => Promise<void>;
+  activePlanId: string | null;
+  setActivePlan: (id: string) => void;
   isLoading: boolean;
 };
 
 const WeeklyPlanContext = createContext<WeeklyPlanContextType | null>(null);
 
 const STORAGE_KEY = '@gym_app_weekly_plans';
+const ACTIVE_KEY = '@gym_app_active_plan';
 const DAYS: DayWorkout['day'][] = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
 
 export const WEEK_DAYS: DayWorkout['day'][] = DAYS;
 
 export function WeeklyPlanProvider({ children }: { children: React.ReactNode }) {
   const [plans, setPlans] = useState<WeeklyPlan[]>([]);
+  const [activePlanId, setActivePlanId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadPlans();
+    AsyncStorage.getItem(ACTIVE_KEY).then(setActivePlanId).catch(() => {});
   }, []);
+
+  const setActivePlan = (id: string) => {
+    setActivePlanId(id);
+    AsyncStorage.setItem(ACTIVE_KEY, id).catch(e => console.error('Errore nel salvataggio della scheda attiva:', e));
+  };
 
   useEffect(() => {
     if (!isLoading) {
@@ -46,7 +56,8 @@ export function WeeklyPlanProvider({ children }: { children: React.ReactNode }) 
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
-        setPlans(JSON.parse(stored));
+        // old saves can contain null entries: drop them so every consumer can rely on p.id
+        setPlans((JSON.parse(stored) as (WeeklyPlan | null)[]).filter((p): p is WeeklyPlan => !!p?.id));
       }
     } catch (error) {
       console.error('Errore nel caricamento delle schede:', error);
@@ -66,7 +77,7 @@ export function WeeklyPlanProvider({ children }: { children: React.ReactNode }) 
   const addPlan = async (plan: Omit<WeeklyPlan, 'id' | 'createdAt'>) => {
     const newPlan: WeeklyPlan = {
       ...plan,
-      id: Date.now().toString(),
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       createdAt: new Date().toISOString(),
     };
     setPlans(prev => [...prev, newPlan]);
@@ -81,7 +92,7 @@ export function WeeklyPlanProvider({ children }: { children: React.ReactNode }) 
   };
 
   return (
-    <WeeklyPlanContext.Provider value={{ plans, addPlan, updatePlan, deletePlan, isLoading }}>
+    <WeeklyPlanContext.Provider value={{ plans, addPlan, updatePlan, deletePlan, activePlanId, setActivePlan, isLoading }}>
       {children}
     </WeeklyPlanContext.Provider>
   );

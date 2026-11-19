@@ -1,56 +1,46 @@
+import { UI } from '@/constants/theme';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { StyleSheet } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { useCustomTheme } from '@/context/CustomThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const TABS: { name: string; title: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { name: 'index', title: 'Home', icon: 'home' },
+  { name: 'training', title: 'Allenamenti', icon: 'barbell' },
+  { name: 'plans', title: 'Schede', icon: 'calendar' },
+  { name: 'stats', title: 'Stats', icon: 'stats-chart' },
+];
+
 export default function TabLayout() {
-  const { primaryColor } = useCustomTheme();
   const insets = useSafeAreaInsets();
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: primaryColor || '#7AA0FF',
-        tabBarInactiveTintColor: '#888',
         headerShown: false,
+        tabBarActiveTintColor: UI.text,
+        tabBarInactiveTintColor: UI.subtle,
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
         tabBarStyle: {
-          backgroundColor: '#0d0d0d',
-          borderTopColor: '#222',
-          borderTopWidth: 1,
-          height: 60 + insets.bottom,
+          backgroundColor: UI.bg,
+          borderTopColor: UI.border,
+          height: 64 + insets.bottom,
           paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
           paddingTop: 8,
         },
       }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="music"
-        options={{
-          title: 'Musica',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'musical-notes' : 'musical-notes-outline'} size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'compass' : 'compass-outline'} size={22} color={color} />
-          ),
-        }}
-      />
+      {TABS.map(t => (
+        <Tabs.Screen
+          key={t.name}
+          name={t.name}
+          options={{
+            title: t.title,
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name={focused ? t.icon : (`${t.icon}-outline` as keyof typeof Ionicons.glyphMap)} size={24} color={color} />
+            ),
+          }}
+        />
+      ))}
     </Tabs>
   );
 }

@@ -9,7 +9,8 @@ export type Exercise = {
   restSeconds: number;
   durationSeconds?: number;
   description?: string;
-  maxWeight?: string; // Peso massimo registrato (testo libero, es. "80.5 kg", "2x20")
+  maxWeight?: string; // legacy: peso in testo libero, ora i pesi stanno nello storico (HistoryContext)
+  supersetWithNext?: boolean; // eseguito in superserie con l'esercizio successivo
 };
 
 export type Workout = {
@@ -21,7 +22,7 @@ export type Workout = {
 
 type WorkoutContextType = {
   workouts: Workout[];
-  addWorkout: (workout: Omit<Workout, 'id' | 'createdAt'>) => Promise<void>;
+  addWorkout: (workout: Omit<Workout, 'id' | 'createdAt'>) => Promise<string>;
   updateWorkout: (id: string, workout: Omit<Workout, 'id' | 'createdAt'>) => Promise<void>;
   deleteWorkout: (id: string) => Promise<void>;
   isLoading: boolean;
@@ -51,7 +52,8 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored) as Workout[];
+        // drop null entries from old saves: one of them made the map below throw, and the empty state then overwrote all workouts
+        const parsed = (JSON.parse(stored) as (Workout | null)[]).filter((w): w is Workout => !!w?.id).map(w => ({ ...w, exercises: (w.exercises ?? []).filter(Boolean) }));
         // Migrazione: aggiungi ID agli esercizi che non ce l'hanno
         const migrated = parsed.map(workout => ({
           ...workout,
@@ -82,12 +84,14 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
   const addWorkout = async (workout: Omit<Workout, 'id' | 'createdAt'>) => {
     const newWorkout: Workout = {
       ...workout,
-      id: Date.now().toString(),
+      // suffix keeps ids unique when several workouts are added in the same tick (AI plan import)
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       createdAt: new Date().toISOString(),
       // Gli esercizi devono già avere ID
       exercises: workout.exercises,
     };
     setWorkouts(prev => [...prev, newWorkout]);
+    return newWorkout.id;
   };
 
   const deleteWorkout = async (id: string) => {

@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "gymapp",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
@@ -43,6 +43,7 @@
       "expo-font",
       "expo-web-browser",
       "expo-video",
+      "./modules/workout-pip/app.plugin.js",
       [
         "expo-camera",
         {

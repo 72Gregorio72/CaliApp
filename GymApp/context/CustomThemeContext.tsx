@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { setPalette } from '@/constants/theme';
 import { createContext, useContext, useEffect, useState } from 'react';
 
 type CustomThemeContextType = {
@@ -6,6 +7,8 @@ type CustomThemeContextType = {
   secondaryColor: string;
   setPrimaryColor: (color: string) => Promise<void>;
   setSecondaryColor: (color: string) => Promise<void>;
+  darkMode: boolean;
+  setDarkMode: (dark: boolean) => Promise<void>;
   isLoading: boolean;
 };
 
@@ -13,12 +16,14 @@ const CustomThemeContext = createContext<CustomThemeContextType | null>(null);
 
 const PRIMARY_KEY = '@gym_app_primary_color';
 const SECONDARY_KEY = '@gym_app_secondary_color';
+const DARK_KEY = '@gym_app_dark_mode';
 
 // Colori di default
-export const DEFAULT_PRIMARY = '#7AA0FF'; // Azzurro
+export const DEFAULT_PRIMARY = '#C9F04A'; // Lime
 export const DEFAULT_SECONDARY = '#FF8A65'; // Arancio
 
 export const PRIMARY_COLOR_OPTIONS = [
+  { name: 'Lime', value: '#C9F04A' },
   { name: 'Azzurro', value: '#7AA0FF' },
   { name: 'Smeraldo', value: '#4CAF50' },
   { name: 'Corallo', value: '#FF6B6B' },
@@ -39,6 +44,7 @@ export const SECONDARY_COLOR_OPTIONS = [
 export function CustomThemeProvider({ children }: { children: React.ReactNode }) {
   const [primaryColor, setPrimaryState] = useState(DEFAULT_PRIMARY);
   const [secondaryColor, setSecondaryState] = useState(DEFAULT_SECONDARY);
+  const [darkMode, setDarkState] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Carica i colori memorizzati all'avvio
@@ -50,6 +56,10 @@ export function CustomThemeProvider({ children }: { children: React.ReactNode })
     try {
       const storedPrimary = await AsyncStorage.getItem(PRIMARY_KEY);
       const storedSecondary = await AsyncStorage.getItem(SECONDARY_KEY);
+      if ((await AsyncStorage.getItem(DARK_KEY)) === '1') {
+        setPalette(true); // before the state change so the remounted screens read the dark palette
+        setDarkState(true);
+      }
       if (storedPrimary) {
         setPrimaryState(storedPrimary);
       }
@@ -81,6 +91,16 @@ export function CustomThemeProvider({ children }: { children: React.ReactNode })
     }
   };
 
+  const setDarkMode = async (dark: boolean) => {
+    setPalette(dark);
+    setDarkState(dark);
+    try {
+      await AsyncStorage.setItem(DARK_KEY, dark ? '1' : '0');
+    } catch (error) {
+      console.error('Errore nel salvataggio del tema:', error);
+    }
+  };
+
   return (
     <CustomThemeContext.Provider
       value={{
@@ -88,6 +108,8 @@ export function CustomThemeProvider({ children }: { children: React.ReactNode })
         secondaryColor,
         setPrimaryColor,
         setSecondaryColor,
+        darkMode,
+        setDarkMode,
         isLoading,
       }}
     >
