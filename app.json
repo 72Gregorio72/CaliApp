@@ -1,0 +1,74 @@
+{
+  "expo": {
+    "name": "GymApp",
+    "slug": "GymApp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/app-icon.png",
+    "scheme": "gymapp",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F4F4F4",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.gpicchio.GymApp"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/app-splash.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
+        }
+      ],
+      "expo-font",
+      "expo-web-browser",
+      "expo-video",
+      "./modules/workout-pip/app.plugin.js",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Consenti a GymApp di accedere alla fotocamera per registrare i tuoi esercizi.",
+          "microphonePermission": "Consenti a GymApp di accedere al microfono per registrare l'audio dei tuoi esercizi.",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Consenti a GymApp di accedere alla galleria per salvare i tuoi video.",
+          "savePhotosPermission": "Consenti a GymApp di salvare i video dei tuoi esercizi nella galleria."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d0d46ddd-bafc-4cb8-b1f0-dc050d20fc72"
+      }
+    }
+  }
+}

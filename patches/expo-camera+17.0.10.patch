@@ -1,0 +1,48 @@
+diff --git a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/ExpoCameraView.kt b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/ExpoCameraView.kt
+index fc56526..7abd242 100644
+--- a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/ExpoCameraView.kt
++++ b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/ExpoCameraView.kt
+@@ -157,6 +157,8 @@ class ExpoCameraView(
+ 
+   var zoom: Float = 0f
+     set(value) {
++      // GymApp patch: entering/leaving wide mode rebinds, the ultra-wide may be a separate camera
++      if ((field < 0f) != (value < 0f) && lensFacing == CameraType.BACK) shouldCreateCamera = true
+       field = value
+       setCameraZoom(value)
+     }
+@@ -442,6 +444,12 @@ class ExpoCameraView(
+ 
+     val cameraSelector = CameraSelector.Builder()
+       .requireLensFacing(lensFacing.mapToCharacteristic())
++      .apply {
++        // GymApp patch: wide mode picks the back camera with the widest horizontal FOV
++        if (zoom < 0f && lensFacing == CameraType.BACK) {
++          addCameraFilter { infos -> infos.maxByOrNull { horizontalFov(it) }?.let { listOf(it) } ?: infos }
++        }
++      }
+       .build()
+ 
+     imageCaptureUseCase = ImageCapture.Builder()
+@@ -587,9 +595,19 @@ class ExpoCameraView(
+     }
+   }
+ 
++  @OptIn(ExperimentalCamera2Interop::class)
++  private fun horizontalFov(info: CameraInfo): Double {
++    val c = Camera2CameraInfo.from(info)
++    val focal = c.getCameraCharacteristic(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)?.minOrNull() ?: return 0.0
++    val width = c.getCameraCharacteristic(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE)?.width ?: return 0.0
++    return 2 * Math.atan(width / (2.0 * focal))
++  }
++
+   private fun setCameraZoom(value: Float) {
+-    val maxZoomRatio = camera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 1f
+-    val targetZoomRatio = max(1f, min(maxZoomRatio, value.coerceIn(0f, 1f) * maxZoomRatio))
++    val zoomState = camera?.cameraInfo?.zoomState?.value
++    val maxZoomRatio = zoomState?.maxZoomRatio ?: 1f
++    // GymApp patch: negative zoom = widest ratio (ultra-wide on multi-camera phones, minZoomRatio < 1)
++    val targetZoomRatio = if (value < 0f) zoomState?.minZoomRatio ?: 1f else max(1f, min(maxZoomRatio, value.coerceIn(0f, 1f) * maxZoomRatio))
+     camera?.cameraControl?.setZoomRatio(targetZoomRatio)
+   }
+ 
