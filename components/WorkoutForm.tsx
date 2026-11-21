@@ -4,6 +4,7 @@ import { Button, Card, Field, IconButton, Screen, Section, Sheet, Txt, onInk } f
 import { UI, themed } from '@/constants/theme';
 import { useCustomTheme } from '@/context/CustomThemeContext';
 import type { Exercise, Workout } from '@/context/WorkoutContext';
+import { blockLabel, groupAt, groupsOf, normalizeBlocks, type Block } from '@/lib/blocks';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Clipboard from 'expo-clipboard';
 import { useState } from 'react';
@@ -19,9 +20,16 @@ type DraftExercise = {
   durationEnabled?: boolean;
   durationSeconds?: string;
   description?: string;
-  superset?: boolean;
+  superset?: boolean; // linked to the next exercise: same block
+  block?: Block; // only read on the first exercise of a block
   maxWeight?: string; // legacy, carried through untouched
 };
+
+const BLOCK_HELP = {
+  none: 'Gli esercizi collegati si fanno in superserie: uno dopo l\'altro, recupero alla fine del giro.',
+  emom: 'Ogni minuto parte un esercizio del blocco, a rotazione: fai le ripetizioni e riposi fino al minuto dopo. Le serie si calcolano dai minuti.',
+  amrap: 'Più giri possibili del blocco nel tempo dato. Le serie sono i giri che punti a fare.',
+} as const;
 
 type WorkoutInput = Omit<Workout, 'id' | 'createdAt'>;
 
@@ -89,6 +97,7 @@ const toDraftEx = (ex: Exercise): DraftExercise => ({
     durationSeconds: ex.durationSeconds ? String(ex.durationSeconds) : '',
     description: ex.description ?? '',
     superset: !!ex.supersetWithNext,
+    block: ex.block,
     maxWeight: ex.maxWeight,
   });
 const toDraft = (w?: Workout): DraftExercise[] => (w?.exercises ?? []).map(toDraftEx);
@@ -112,6 +121,25 @@ export function WorkoutForm({
   const [importText, setImportText] = useState('');
   // existing exercise picker: replace = id of the exercise to swap out, otherwise it adds at the end
   const [picker, setPicker] = useState<{ replace?: string } | null>(null);
+  // block settings sheet: id of the block's first exercise
+  const [blockFor, setBlockFor] = useState<string | null>(null);
+  const [blockDraft, setBlockDraft] = useState<{ type: 'none' | Block['type']; minutes: string }>({ type: 'none', minutes: '10' });
+  const groups = groupsOf(exercises.map(e => ({ supersetWithNext: e.superset, block: e.block })));
+
+  const openBlock = (headId: string) => {
+    const b = exercises.find(e => e.id === headId)?.block;
+    setBlockDraft({ type: b?.type ?? 'none', minutes: String(b?.minutes ?? 10) });
+    setBlockFor(headId);
+  };
+  const saveBlock = () => {
+    if (!blockFor) return;
+    const minutes = parseInt(blockDraft.minutes, 10);
+    if (blockDraft.type !== 'none' && !(minutes > 0)) return Alert.alert('Minuti non validi', 'Indica quanti minuti dura il blocco.');
+    setExercises(prev => prev.map(e => (e.id === blockFor ? { ...e, block: blockDraft.type === 'none' ? undefined : { type: blockDraft.type, minutes } } : e)));
+    setBlockFor(null);
+  };
+  const blockHead = blockFor ? exercises.findIndex(e => e.id === blockFor) : -1;
+  const blockSize = blockHead >= 0 ? (groupAt(groups, blockHead)?.end ?? blockHead + 1) - blockHead : 1;
 
   // the picked exercise keeps its id, so it shares history with the workouts it comes from;
   // one already in this workout is copied with a new id (an id must be unique within a workout)
@@ -119,7 +147,8 @@ export function WorkoutForm({
     const replace = picker?.replace;
     if (ex.id === replace) return;
     const d = toDraftEx(exercises.some(e => e.id === ex.id) ? { ...ex, id: newId() } : ex);
-    setExercises(prev => (replace ? prev.map(e => (e.id === replace ? { ...d, superset: e.superset } : e)) : [...prev, d]));
+    // links and block belong to the slot, not to the exercise: a replacement keeps the slot's, a new one starts unlinked
+    setExercises(prev => (replace ? prev.map(e => (e.id === replace ? { ...d, superset: e.superset, block: e.block } : e)) : [...prev, { ...d, superset: false, block: undefined }]));
   };
 
   const reorder = (from: number, to: number) =>
@@ -170,13 +199,16 @@ export function WorkoutForm({
         ...(e.durationEnabled && Number(e.durationSeconds) > 0 ? { durationSeconds: Number(e.durationSeconds) } : {}),
         ...(e.description && e.description.trim().length > 0 ? { description: e.description.trim() } : {}),
         ...(e.superset ? { supersetWithNext: true } : {}),
+        ...(e.block ? { block: e.block } : {}),
         ...(e.maxWeight ? { maxWeight: e.maxWeight } : {}),
       }));
-    if (cleaned.length === 0) {
+    // on the saved list (empty names dropped): a block survives only on its first exercise
+    const final: Exercise[] = normalizeBlocks(cleaned);
+    if (final.length === 0) {
       Alert.alert('Nessun esercizio', 'Aggiungi almeno un esercizio');
       return;
     }
-    onSubmit({ title: title.trim(), exercises: cleaned });
+    onSubmit({ title: title.trim(), exercises: final });
   };
 
   const copyPrompt = async () => {
@@ -236,11 +268,22 @@ export function WorkoutForm({
       ) : null}
 
       <Section title={`Esercizi · ${exercises.length}`}>
-        {exercises.length > 1 ? <Txt v="muted">Tieni premuto un esercizio e trascinalo per cambiare l'ordine.</Txt> : null}
+        {exercises.length > 1 ? <Txt v="muted">{"Tieni premuto un esercizio e trascinalo per cambiare l'ordine. Collega esercizi per farne una superserie, un EMOM o un AMRAP."}</Txt> : null}
         <DragList data={exercises} keyOf={ex => ex.id} onMove={reorder} render={(ex, i) => {
           const open = expanded === ex.id;
+          const g = groupAt(groups, i)!;
+          const head = exercises[g.start];
+          const inBlock = g.type !== null;
           return (
-            <Card style={styles.exCard}>
+            <Card style={[styles.exCard, inBlock && { borderLeftWidth: 4, borderLeftColor: primaryColor }]}>
+              {inBlock && i === g.start ? (
+                <Pressable onPress={() => openBlock(ex.id)} style={styles.blockHead} accessibilityRole="button" accessibilityLabel={`${blockLabel(g)}, modifica blocco`}>
+                  <Ionicons name={g.type === 'superset' ? 'git-merge-outline' : g.type === 'emom' ? 'alarm-outline' : 'flame-outline'} size={16} color={UI.text} />
+                  <Txt v="label" color={UI.text} style={{ flex: 1, letterSpacing: 0.5 }}>{blockLabel(g).toUpperCase()}</Txt>
+                  {g.type === 'emom' ? <Txt v="label">serie dai minuti</Txt> : null}
+                  <Ionicons name="options-outline" size={16} color={UI.muted} />
+                </Pressable>
+              ) : null}
               <View style={styles.exHead}>
                 <TextInput
                   value={ex.name}
@@ -295,17 +338,10 @@ export function WorkoutForm({
                     <Field label="Durata (secondi)" keyboardType="number-pad" value={ex.durationSeconds ?? ''} onChangeText={t => update(ex.id, 'durationSeconds', t)} />
                   ) : null}
                   <Field label="Note (opzionale)" placeholder="Tecnica, carico, dettagli…" value={ex.description ?? ''} onChangeText={t => update(ex.id, 'description', t)} multiline />
-                  {i < exercises.length - 1 ? (
-                    <View style={styles.switchRow}>
-                      <Txt v="body">Superserie con il successivo</Txt>
-                      <Switch
-                        value={!!ex.superset}
-                        onValueChange={v => update(ex.id, 'superset', v)}
-                        trackColor={{ true: UI.ink, false: UI.border }}
-                        thumbColor={ex.superset ? primaryColor : '#fff'}
-                      />
-                    </View>
-                  ) : null}
+                  <Pressable onPress={() => openBlock(head.id)} style={styles.switchRow} accessibilityRole="button">
+                    <Txt v="body">Modalità blocco</Txt>
+                    <Txt v="label">{inBlock ? blockLabel(g) : 'Normale'} ›</Txt>
+                  </Pressable>
                   <View style={styles.switchRow}>
                     <Txt v="body">Posizione</Txt>
                     <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -314,6 +350,17 @@ export function WorkoutForm({
                     </View>
                   </View>
                 </View>
+              ) : null}
+              {i < exercises.length - 1 ? (
+                <Pressable
+                  onPress={() => update(ex.id, 'superset', !ex.superset)}
+                  style={[styles.link, ex.superset && { backgroundColor: UI.ink }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={ex.superset ? 'Scollega dal successivo' : 'Collega al successivo'}
+                >
+                  <Ionicons name={ex.superset ? 'link' : 'add'} size={14} color={ex.superset ? onInk(primaryColor) : UI.muted} />
+                  <Txt v="label" color={ex.superset ? onInk(primaryColor) : UI.muted}>{ex.superset ? 'Collegato al successivo · tocca per scollegare' : 'Collega al successivo'}</Txt>
+                </Pressable>
               ) : null}
             </Card>
           );
@@ -335,6 +382,32 @@ export function WorkoutForm({
         onPick={pickExisting}
         onClose={() => setPicker(null)}
       />
+
+      <Sheet visible={blockFor !== null} onClose={() => setBlockFor(null)} title="Modalità blocco">
+        <Txt v="muted">{blockSize > 1 ? `Vale per i ${blockSize} esercizi collegati.` : 'Vale per questo esercizio. Collegane altri per fare un blocco di più esercizi.'}</Txt>
+        <View style={styles.choices}>
+          {([['none', blockSize > 1 ? 'Superserie' : 'Normale', 'git-merge-outline'], ['emom', 'EMOM', 'alarm-outline'], ['amrap', 'AMRAP', 'flame-outline']] as const).map(([key, label, icon]) => {
+            const on = blockDraft.type === key;
+            return (
+              <Pressable
+                key={key}
+                onPress={() => setBlockDraft(d => ({ ...d, type: key }))}
+                style={[styles.choice, on && { backgroundColor: UI.ink, borderColor: UI.ink }]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: on }}
+              >
+                <Ionicons name={icon} size={20} color={on ? onInk(primaryColor) : UI.text} />
+                <Txt v="h3" color={on ? onInk(primaryColor) : UI.text}>{label}</Txt>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Txt v="muted">{BLOCK_HELP[blockDraft.type]}</Txt>
+        {blockDraft.type !== 'none' ? (
+          <Field label="Durata (minuti)" keyboardType="number-pad" value={blockDraft.minutes} onChangeText={t => setBlockDraft(d => ({ ...d, minutes: t }))} />
+        ) : null}
+        <Button title="Applica" icon="checkmark" onPress={saveBlock} />
+      </Sheet>
 
       <Sheet visible={importOpen} onClose={() => setImportOpen(false)} title="Importa con l'AI">
         <Txt v="muted">
@@ -371,4 +444,8 @@ const styles = themed(() => StyleSheet.create({
   titleInput: { fontSize: 22, fontWeight: '700', paddingVertical: 16 },
   headerSave: { fontSize: 16, fontWeight: '700', color: UI.text },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  blockHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: -4 },
+  link: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8, borderRadius: 10, backgroundColor: UI.surface },
+  choices: { flexDirection: 'row', gap: 8 },
+  choice: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 14, borderRadius: 14, borderWidth: 1.5, borderColor: UI.border },
 }));

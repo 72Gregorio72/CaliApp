@@ -14,7 +14,15 @@ export type SessionDraft = {
   logged?: Record<string, true>; // values entered this session: the exercise counts as done even with no set ticked
   swaps?: Record<string, Exercise>; // workout exercise id -> exercise done in its place, this session only
   note?: string;
+  freeExercises?: Exercise[]; // free workout only: the exercises added during the session
+  edits?: Record<string, Partial<Exercise>>; // exercise id -> changes made during the session (saved workout untouched until the end)
+  currentId?: string; // exercise on screen when leaving
+  // timers when leaving the screen: [ms, running] at time `at`, so a running one can be caught up on resume
+  timers?: { at: number; mode: 'countdown' | 'stopwatch'; rest: [number, boolean]; sw: [number, boolean]; block: [number, boolean] };
 };
+
+/** workoutId of a free workout: no saved workout, exercises are added during the session. */
+export const FREE_WORKOUT_ID = 'free';
 
 /** Body weight entry, newest first like sessions. */
 export type BodyWeight = { date: string; kg: number };

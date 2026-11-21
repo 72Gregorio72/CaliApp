@@ -2,7 +2,7 @@ import { Button, Field, IconButton, Sheet, Txt } from '@/components/ui/kit';
 import { UI, themed } from '@/constants/theme';
 import type { SessionLog, SessionVideo } from '@/lib/stats';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import * as MediaLibrary from 'expo-media-library';
+import * as MediaLibrary from 'expo-media-library/legacy';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useState } from 'react';
 import { Alert, Image, Linking, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';

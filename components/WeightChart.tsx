@@ -4,11 +4,10 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import Svg, { Circle, G, Line, Polyline, Text as SvgText } from 'react-native-svg';
 
-const H = 240;
 const PAD = { l: 40, r: 16, t: 24, b: 28 };
 
 /** Line chart with grid, y axis in the exercise unit, one dot per session. */
-export function WeightChart({ points, color, unit }: { points: { kg: number; date: string }[]; color: string; unit: Unit }) {
+export function WeightChart({ points, color, unit, height: H = 240 }: { points: { kg: number; date: string }[]; color: string; unit: Unit; height?: number }) {
   const [w, setW] = useState(0);
   const kgs = points.map(p => p.kg);
   const min = Math.min(...kgs);

@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/kit';
 import { UI, themed } from '@/constants/theme';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
-import * as MediaLibrary from 'expo-media-library';
+import * as MediaLibrary from 'expo-media-library/legacy';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import React from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -135,12 +135,12 @@ export function VideoRecorder({ visible, title, onClose }: { visible: boolean; t
         <>
           <CameraView
             ref={cameraRef}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
             mode="video"
             facing={cameraFacing}
             selectedLens={Platform.OS === 'ios' && wide ? ultraLens : undefined}
             zoom={Platform.OS === 'android' && wide ? -1 : 0}
-            onAvailableLensesChanged={e => setUltraLens(e.lenses.find(l => /ultra/i.test(l)))}
+            onAvailableLensesChanged={e => setUltraLens(e.lenses.find(l => /ultra/i.test(l.deviceType))?.deviceType)}
           />
           <View style={[styles.cameraBar, { paddingTop: insets.top + 8 }]}>
             <Pressable style={styles.cameraIconBtn} onPress={closeVideoModal} accessibilityLabel="Chiudi" hitSlop={8}>
@@ -201,8 +201,8 @@ export function VideoRecorder({ visible, title, onClose }: { visible: boolean; t
         <>
           <VideoView
             player={player}
-            style={StyleSheet.absoluteFillObject}
-            allowsFullscreen={false}
+            style={StyleSheet.absoluteFill}
+            fullscreenOptions={{ enable: false }}
             allowsPictureInPicture={false}
             contentFit="contain"
             nativeControls

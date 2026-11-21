@@ -5,8 +5,8 @@ import { unifyIds } from './stats';
 const WORKOUTS_KEY = '@gym_app_workouts';
 const HISTORY_KEY = '@gym_app_history';
 const DRAFT_KEY = '@gym_app_session_draft';
-// workouts, plans, history, body weight, active plan (theme and in-progress session are not worth backing up)
-const ARRAY_KEYS = [WORKOUTS_KEY, '@gym_app_weekly_plans', HISTORY_KEY, '@gym_app_body_weight'];
+// workouts, plans, history, body weight, standalone exercises, active plan (theme and in-progress session are not worth backing up)
+const ARRAY_KEYS = [WORKOUTS_KEY, '@gym_app_weekly_plans', HISTORY_KEY, '@gym_app_body_weight', '@gym_app_exercises'];
 const KEYS = [...ARRAY_KEYS, '@gym_app_active_plan'];
 
 /** Remounts the data providers so they re-read storage after a restore. */

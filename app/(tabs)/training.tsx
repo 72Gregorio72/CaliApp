@@ -1,4 +1,5 @@
-import { Button, Card, Empty, IconButton, Pill, Screen, Txt } from '@/components/ui/kit';
+import { Button, Card, Empty, IconButton, Pill, Row, Screen, Txt } from '@/components/ui/kit';
+import { FREE_WORKOUT_ID } from '@/context/HistoryContext';
 import { useWeeklyPlans } from '@/context/WeeklyPlanContext';
 import { useWorkouts, type Workout } from '@/context/WorkoutContext';
 import { router } from 'expo-router';
@@ -37,6 +38,12 @@ export default function TrainingScreen() {
       title="Allenamenti"
       right={<IconButton icon="add" tone="accent" label="Nuovo allenamento" onPress={() => router.push('/workouts/add')} />}
     >
+      <Row
+        icon="flash-outline"
+        title="Allenamento libero"
+        subtitle="Parti da zero e aggiungi gli esercizi mentre ti alleni"
+        onPress={() => router.push({ pathname: '/workouts/session', params: { workoutId: FREE_WORKOUT_ID } })}
+      />
       {workouts.length === 0 ? (
         <Empty
           icon="barbell-outline"

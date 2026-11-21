@@ -1,11 +1,13 @@
 // Local notifications: rest-over alarm (rings with the screen locked, where JS timers are paused) and weekly workout reminders.
 import type * as NotificationsT from 'expo-notifications';
+import { isRunningInExpoGo } from 'expo';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 
-// no-op in Expo Go (importing it there logs a red push-notification error on Android) and in dev builds made before it was added
+// no-op in Expo Go (there the channel call throws a native NullPointerException on Android) and in dev builds made before it was added
+// isRunningInExpoGo too: executionEnvironment alone missed Expo Go on recent SDKs
 let Notifications: typeof NotificationsT | null = null;
-if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
+if (!isRunningInExpoGo() && Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
   try {
     Notifications = require('expo-notifications');
   } catch {}

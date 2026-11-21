@@ -58,4 +58,13 @@ export async function seedDemo() {
   await merge('@gym_app_weekly_plans', [plan]);
   await merge('@gym_app_history', logs, true); // history is newest first
   await AsyncStorage.setItem('@gym_app_active_plan', PLAN_ID);
+
+  // one weigh-in per morning for 30 days, slowly dropping with some noise; extra demo_ id marks them for re-seeding
+  const weights = Array.from({ length: 30 }, (_, i) => {
+    const back = 30 - i;
+    return { id: `demo_bw${back}`, date: new Date(day.getFullYear(), day.getMonth(), day.getDate() - back, 8).toISOString(), kg: Math.round((78 - i * 0.07 + ((back * 7) % 5) * 0.2 - 0.4) * 10) / 10 };
+  });
+  const oldBw = (JSON.parse((await AsyncStorage.getItem('@gym_app_body_weight')) ?? '[]') as { id?: string; date: string }[]).filter(x => !isDemo(x));
+  // body weights are newest first, real ones may be newer or older than the demo month
+  await AsyncStorage.setItem('@gym_app_body_weight', JSON.stringify([...oldBw, ...weights].sort((a, b) => b.date.localeCompare(a.date))));
 }

@@ -1,5 +1,7 @@
 import { WeightModal } from '@/components/session/WeightModal';
-import { Card, Empty, IconButton, MonthGrid, Row, Screen, Section, Txt } from '@/components/ui/kit';
+import { Card, Empty, IconButton, MonthGrid, Pill, Row, Screen, Section, Stat, Txt } from '@/components/ui/kit';
+import { UI } from '@/constants/theme';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCustomTheme } from '@/context/CustomThemeContext';
 import { useHistory } from '@/context/HistoryContext';
 import { useWeeklyPlans } from '@/context/WeeklyPlanContext';
@@ -7,10 +9,10 @@ import { WeightChart } from '@/components/WeightChart';
 import { dayKey, fmtDay, fmtVal, weeklyVolume, type SessionLog } from '@/lib/stats';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Alert, FlatList, View } from 'react-native';
+import { FlatList, View } from 'react-native';
 
 export default function StatsScreen() {
-  const { sessions, bodyWeights, addBodyWeight, removeBodyWeight } = useHistory();
+  const { sessions, bodyWeights, addBodyWeight } = useHistory();
   const [weighing, setWeighing] = useState(false);
   const { plans, activePlanId } = useWeeklyPlans();
   const { primaryColor } = useCustomTheme();
@@ -47,17 +49,7 @@ export default function StatsScreen() {
         {bodyWeights.length === 0 ? (
           <Empty icon="body-outline" title="Nessuna pesata" text="Registra il tuo peso ogni tanto per vederne l'andamento." action="Registra peso" onAction={() => setWeighing(true)} />
         ) : (
-          <Card>
-            <WeightChart points={[...bodyWeights].reverse()} color={primaryColor} unit="kg" />
-            {bodyWeights.slice(0, 5).map(b => (
-              <Row
-                key={b.date}
-                title={fmtVal(b.kg)}
-                subtitle={fmtDay(b.date)}
-                right={<IconButton icon="trash-outline" tone="danger" label={`Elimina pesata del ${fmtDay(b.date)}`} onPress={() => Alert.alert('Elimina pesata', `Eliminare ${fmtVal(b.kg)} del ${fmtDay(b.date)}?`, [{ text: 'Annulla', style: 'cancel' }, { text: 'Elimina', style: 'destructive', onPress: () => removeBodyWeight(b.date) }])} />}
-              />
-            ))}
-          </Card>
+          <BodyWeightCard />
         )}
       </Section>
       <WeightModal visible={weighing} title="Peso corporeo" value={bodyWeights[0]?.kg} unit="kg" fixedUnit onSave={kg => addBodyWeight(kg)} onClose={() => setWeighing(false)} />
@@ -72,6 +64,51 @@ export default function StatsScreen() {
         )}
       </Section>
     </Screen>
+  );
+}
+
+/** Current weight, changes, recent trend; tap opens every entry. */
+function BodyWeightCard() {
+  const { bodyWeights } = useHistory(); // newest first, never empty here
+  const { primaryColor } = useCustomTheme();
+  const cur = bodyWeights[0];
+  // measured from the latest entry, not from now: Date.now() is impure during render
+  const monthAgo = new Date(cur.date).getTime() - 30 * 864e5;
+  // weight about 30 days ago: newest entry older than that, else the oldest one
+  const base = bodyWeights.find((b, i) => new Date(b.date).getTime() < monthAgo || i === bodyWeights.length - 1);
+  const kgs = bodyWeights.map(b => b.kg);
+  // body weight up or down isn't good or bad by itself: neutral pills, no green/red
+  const change = (from: number | undefined, label: string) => {
+    if (from === undefined) return null;
+    const d = Math.round((cur.kg - from) * 10) / 10;
+    return <Pill icon={d > 0 ? 'trending-up' : d < 0 ? 'trending-down' : 'remove'} text={`${d > 0 ? '+' : ''}${fmtVal(d)} ${label}`} />;
+  };
+
+  return (
+    <Card onPress={() => router.push('/weekly-plans/body-weight')}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <View style={{ flexShrink: 1 }}>
+          <Txt v="label">Attuale</Txt>
+          <Txt v="num">{fmtVal(cur.kg)}</Txt>
+          <Txt v="muted" numberOfLines={1}>{fmtDay(cur.date)}</Txt>
+        </View>
+        <View style={{ alignItems: 'flex-end', gap: 6 }}>
+          {change(bodyWeights[1]?.kg, "dall'ultima")}
+          {bodyWeights.length > 2 && base !== bodyWeights[1] ? change(base?.kg, 'in 30 gg') : null}
+        </View>
+      </View>
+      {/* trend only: the full history is one tap away */}
+      {bodyWeights.length > 1 ? <WeightChart points={bodyWeights.slice(0, 20).reverse()} color={primaryColor} unit="kg" height={180} /> : null}
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <Stat value={fmtVal(Math.min(...kgs))} label="Minimo" />
+        <Stat value={fmtVal(Math.max(...kgs))} label="Massimo" />
+        <Stat value={bodyWeights.length} label="Pesate" />
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+        <Txt v="label">Tutte le pesate</Txt>
+        <Ionicons name="chevron-forward" size={14} color={UI.muted} />
+      </View>
+    </Card>
   );
 }
 

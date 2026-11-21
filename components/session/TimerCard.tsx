@@ -13,7 +13,7 @@ export type TimerMode = 'countdown' | 'stopwatch';
 export const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 /** Dark card with stopwatch/countdown switch, progress ring and controls. */
-export function TimerCard({ mode, onMode, seconds, progress, running, onReset, onToggle, onPlus15 }: {
+export function TimerCard({ mode, onMode, seconds, progress, running, onReset, onToggle, onPlus15, onMinus15, header, caption }: {
   mode: TimerMode;
   onMode: (m: TimerMode) => void;
   seconds: number;
@@ -22,6 +22,9 @@ export function TimerCard({ mode, onMode, seconds, progress, running, onReset, o
   onReset: () => void;
   onToggle: () => void;
   onPlus15: () => void;
+  onMinus15: () => void;
+  header?: React.ReactNode; // block timer (EMOM/AMRAP): replaces the mode switch and the ±15 s buttons
+  caption?: string; // small line under the digits
 }) {
   const { primaryColor, secondaryColor } = useCustomTheme();
   const [ringSize, setRingSize] = React.useState(0);
@@ -31,6 +34,7 @@ export function TimerCard({ mode, onMode, seconds, progress, running, onReset, o
 
   return (
     <View style={[styles.card, { backgroundColor: UI.ink, borderColor: UI.ink }]}>
+      {header ?? (
       <View style={[styles.segment, { backgroundColor: '#262626' }]}>
         {([['stopwatch', 'Cronometro', 'stopwatch-outline'], ['countdown', 'Timer', 'hourglass-outline']] as const).map(([key, label, icon]) => {
           const on = mode === key;
@@ -49,6 +53,7 @@ export function TimerCard({ mode, onMode, seconds, progress, running, onReset, o
           );
         })}
       </View>
+      )}
 
       <View
         style={styles.ringArea}
@@ -72,6 +77,7 @@ export function TimerCard({ mode, onMode, seconds, progress, running, onReset, o
             />
           </Svg>
           <Text numberOfLines={1} style={[styles.digits, { color: fg, fontSize: Math.max(28, ringSize * 0.26) }]}>{clock(seconds)}</Text>
+          {caption ? <Text numberOfLines={1} style={styles.caption}>{caption}</Text> : null}
         </View>
       </View>
 
@@ -79,10 +85,17 @@ export function TimerCard({ mode, onMode, seconds, progress, running, onReset, o
         <Pressable style={styles.roundBtn} onPress={onReset} accessibilityLabel="Ripristina">
           <Ionicons name="refresh" size={20} color={fg} />
         </Pressable>
+        {mode === 'countdown' && !header ? (
+          <Pressable style={styles.roundBtn} onPress={onMinus15} accessibilityLabel="Togli 15 secondi">
+            <Text style={styles.plus15}>−15 s</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.roundBtnSpacer} />
+        )}
         <Pressable style={[styles.playBtn, { backgroundColor: primaryColor }]} onPress={onToggle} accessibilityLabel={running ? 'Pausa' : 'Avvia'}>
           <Ionicons name={running ? 'pause' : 'play'} size={28} color={onColor(primaryColor)} />
         </Pressable>
-        {mode === 'countdown' ? (
+        {mode === 'countdown' && !header ? (
           <Pressable style={styles.roundBtn} onPress={onPlus15} accessibilityLabel="Aggiungi 15 secondi">
             <Text style={styles.plus15}>+15 s</Text>
           </Pressable>
@@ -118,11 +131,12 @@ const styles = themed(() => StyleSheet.create({
   ringArea: { flex: 1, minHeight: 150, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },
   ringWrap: { alignItems: 'center', justifyContent: 'center', minWidth: 140, minHeight: 140 },
   digits: { fontWeight: '800', marginBottom: 2, fontVariant: ['tabular-nums'] },
-  buttons: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 36 },
+  buttons: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16 },
   roundBtn: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: '#3a3a3a', alignItems: 'center', justifyContent: 'center' },
   roundBtnSpacer: { width: 48 },
   playBtn: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
   plus15: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  caption: { color: '#9a9a9a', fontSize: 13, fontWeight: '600', maxWidth: '80%' },
   alarmOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.75)', justifyContent: 'center', alignItems: 'center', zIndex: 999 },
   alarmCard: { backgroundColor: UI.card, borderWidth: StyleSheet.hairlineWidth, borderColor: UI.border, borderRadius: 16, padding: 28, alignItems: 'center', gap: 12, width: '85%' },
   alarmTitle: { fontSize: 26, color: UI.text, textAlign: 'center' },

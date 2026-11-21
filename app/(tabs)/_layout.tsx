@@ -36,7 +36,7 @@ export default function TabLayout() {
           options={{
             title: t.title,
             tabBarIcon: ({ color, focused }) => (
-              <Ionicons name={focused ? t.icon : (`${t.icon}-outline` as keyof typeof Ionicons.glyphMap)} size={24} color={color} />
+              <Ionicons name={focused ? t.icon : (`${t.icon}-outline` as keyof typeof Ionicons.glyphMap)} size={24} color={color as string} />
             ),
           }}
         />

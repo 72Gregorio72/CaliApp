@@ -40,7 +40,13 @@ export function useCountdown(initialSeconds: number, onComplete?: () => void) {
   const setSeconds = React.useCallback((s: number) => {
     setRemainingMs(s * 1000);
   }, []);
-  return { seconds, millis, running, start, pause, reset, setSeconds };
+  /** Back to a saved state (resumed session); ms already accounts for the time away. */
+  const restore = React.useCallback((ms: number, run: boolean) => {
+    lastTsRef.current = Date.now();
+    setRemainingMs(Math.max(0, ms));
+    setRunning(run && ms > 0); // ran out while away: stopped at 0, no alarm (the notification already rang)
+  }, []);
+  return { seconds, millis, running, remainingMs, start, pause, reset, setSeconds, restore };
 }
 
 export function useStopwatch() {
@@ -70,5 +76,10 @@ export function useStopwatch() {
   }, []);
   const seconds = Math.floor(elapsedMs / 1000);
   const millis = Math.floor(elapsedMs % 1000);
-  return { seconds, millis, running, start, pause, reset };
+  const restore = React.useCallback((ms: number, run: boolean) => {
+    lastTsRef.current = Date.now();
+    setElapsedMs(ms);
+    setRunning(run);
+  }, []);
+  return { seconds, millis, running, elapsedMs, start, pause, reset, restore };
 }

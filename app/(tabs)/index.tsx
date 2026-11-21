@@ -4,7 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { PRIMARY_COLOR_OPTIONS, SECONDARY_COLOR_OPTIONS, useCustomTheme } from '@/context/CustomThemeContext';
 import { WEEK_DAYS, useWeeklyPlans } from '@/context/WeeklyPlanContext';
 import { useWorkouts } from '@/context/WorkoutContext';
-import { useHistory } from '@/context/HistoryContext';
+import { FREE_WORKOUT_ID, useHistory } from '@/context/HistoryContext';
 import { ReloadDataContext, exportBackup, importBackup, importBackupFile, shareBackupFile } from '@/lib/backup';
 import { seedDemo } from '@/lib/demo';
 import { dayKey, thisWeek, volume, weekStreak } from '@/lib/stats';
@@ -31,7 +31,7 @@ export default function HomeScreen() {
   const today = todayIndex();
   // the active plan wins; without one, the first plan with something today
   const plan = plans.find(p => p?.id === activePlanId) ?? plans.find(p => p?.days?.[today]?.workoutId) ?? plans[0];
-  const draftWorkout = draft ? workouts.find(w => w?.id === draft.workoutId) : undefined;
+  const draftWorkout = !draft ? undefined : draft.workoutId === FREE_WORKOUT_ID ? { id: FREE_WORKOUT_ID, title: 'Allenamento libero' } : workouts.find(w => w?.id === draft.workoutId);
   const week = thisWeek(sessions, now);
   const weekKg = Math.round(week.reduce((n, l) => n + volume(l), 0));
   const monthCount = sessions.filter(l => new Date(l.date).getMonth() === now.getMonth() && new Date(l.date).getFullYear() === now.getFullYear()).length;

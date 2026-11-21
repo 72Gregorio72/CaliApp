@@ -1,4 +1,4 @@
-import { requireOptionalNativeModule } from 'expo-modules-core';
+import { requireOptionalNativeModule } from 'expo';
 
 type WorkoutPip = {
   /** Abilita/disabilita l'ingresso automatico in Picture-in-Picture quando l'utente va alla home. */
